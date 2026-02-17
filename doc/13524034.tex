@@ -54,6 +54,7 @@
 \newcommand{\Sekolah}{Sekolah Teknik Elektro dan Informatika}
 \newcommand{\Institusi}{Institut Teknologi Bandung}
 \newcommand{\Tahun}{2025}
+\newcommand{\algorithm}[1]{\textbf{#1}}
 
 \begin{document}
 
@@ -65,12 +66,11 @@
     {\large \textsc{Penyelesaian Permainan Queens}}\\[0.2cm]
     {\large \textsc{Semester II Tahun 2025/2026}}\\[2cm]
           
-    \vfill    
-
-    {\large {Disusun oleh:}}\\[0.2cm]
+    \includegraphics[width=0.75\textwidth]{logo.png}\\[0.5cm] {\large {Disusun oleh:}}\\[0.2cm]
     {\large
     \textbf{Jason Edward Salim - 13524034} \\[2.2cm]
     }
+    \vfill
 
     {\large \textsc{Laboratorium Ilmu dan Rekayasa Komputasi}}\\[0.2cm]
     {\large \textsc{Program Studi Teknik Informatika}}\\[0.2cm]
@@ -122,7 +122,7 @@ func TryPosition(area *TArea) (queensLocation []TPosition) {
         }
 
         var i int
-        for i = n - 1; i >= 0; i-- {
+        for i = n - 1; i >= 0; i- {
             cols[i]++
             if cols[i] < n {
                 break
@@ -145,6 +145,69 @@ func TryPosition(area *TArea) (queensLocation []TPosition) {
 
 \end{enumerate}
 
+\textbf{Versi Optimasi}
+
+Selain brute force penuh, terdapat \textit{TryPositionOptimized} yang menggunakan permutasi kolom. Implementasi ini mengurangi kompleksitas waktu O($N^N$) menjadi O($N!$) dengan memastikan tidak ada dua ratu berbagi kolom sejak awal.
+
+\begin{lstlisting}[language=go]
+func TryPositionOptimized(area *TArea, onStep func([]TPosition) bool) []TPosition {
+    n := area.n
+    cols := make([]int, n)
+    for i := 0; i < n; i++ {
+        cols[i] = i
+    }
+
+    for {
+        temp := make([]TPosition, n)
+        for row := 0; row < n; row++ {
+            temp[row] = TPosition{row, cols[row]}
+        }
+
+        if !onStep(temp) {
+            return nil
+        }
+
+        if CheckPosition(*area, temp) && OneQueen(area, temp) {
+            area.queensLocation = temp
+            return temp
+        }
+
+        // Next permutation
+        i := n-2
+        for i >= 0 && cols[i] > cols[i+1] {
+            i--
+        }
+        if i < 0 {
+            break
+        }
+
+        j := n-1
+        for cols[j] < cols[i] {
+            j--
+        }
+
+        cols[i], cols[j] = cols[j], cols[i]
+
+        for l, r := i+1, n-1; l < r; l, r = l+1, r-1 {
+            cols[l], cols[r] = cols[r], cols[l]
+        }
+    }
+
+    return nil
+}
+\end{lstlisting}
+
+\textbf{Algoritma}:
+\begin{enumerate}
+    \item Inisialisasi kolom sebagai permutasi [0, 1, ..., N-1].
+    \item Untuk tiap permutasi, buat calonnya lalu validasi.
+    \item Jika valid dan setiap region berisi satu ratu, kembalikan solusi.
+    \item Hitung permutasi berikutnya dengan algoritma tersebut.
+    \item Jika tidak ada permutasi lain, maka tidak ada solusi.
+\end{enumerate}
+
+Dengan pendekatan ini, ruang pencarian berkurang dibandingkan dengan penerapan brute force murni.
+
 \subsubsection{Validasi Penempatan}
 Validasi yang harus dilakukan pada setiap masukan dan penempatan ratu antara lain:
 \begin{enumerate}
@@ -154,15 +217,559 @@ Validasi yang harus dilakukan pada setiap masukan dan penempatan ratu antara lai
     \item Cek apakah penempatan ratu sesuai dengan aturan permainan: tidak berada pada baris dan kolom yang sama serta tiap ratu tidak terletak di 8 sel sekitar ratu lainnya.
 \end{enumerate}
 
-Langkah di atas dapat dilihat implementasinya pada folder \textbf{\textit{src/solution}} di \textit{repository} GitHub yang dapat diakses pada lampiran.
+\algorithm{Validasi ukuran dan karakter (\textit{InputCells})}
+\begin{lstlisting}[language=go]
+func InputCells(cells string) (area *TArea, err error) {
+    cells = strings.TrimSpace(cells)
+    rows := strings.Split(cells, "\n")
+
+    rowClean := make([]string, 0, len(rows))
+    for _, row := range rows {
+        fix := strings.TrimSpace(row)
+        if fix != "" {
+            rowClean = append(rowClean, fix)
+        }
+    }
+
+    if len(rowClean) == 0 || len(rowClean[0]) == 0 {
+        return nil, fmt.Errorf("Input kosong.")
+    }
+    N := len(rowClean[0])
+
+    if len(rowClean) != N {
+        return nil, fmt.Errorf("Ukuran harus NxN.")
+    }
+    for _, row := range rowClean {
+        if len(row) != N {
+            return nil, fmt.Errorf("Ukuran harus NxN.")
+        }
+        for _, char := range row {
+            if !unicode.IsLetter(char) {
+                return nil, fmt.Errorf("Tiap sel hanya dapat direpresentasikan oleh alfabet.")
+            }
+        }
+    }
+    ...
+}
+\end{lstlisting}
+\textbf{Algoritma}:
+\begin{enumerate}
+    \item Trim input dan buang baris kosong.
+    \item Ambil N berdasarkan baris pertama.
+    \item Validasi jumlah baris dan kolom.
+    \item Validasi tiap karakter adalah alfabet A-Z.
+\end{enumerate}
+
+\algorithm{Validasi region tersambung (\textit{ValidRegion})}
+\begin{lstlisting}[language=go]
+func ValidRegion(area *TArea) error {
+    colorPosition := make(map[byte][]TPosition)
+    for _, cell := range area.cells {
+        region := byte(cell.color[0])
+        colorPosition[region] = append(colorPosition[region], cell.TPosition)
+    }
+
+    for region, position := range colorPosition {
+        if len(position) == 0 {
+            continue
+        }
+
+        connect := make([]bool, len(position))
+        connect[0] = true
+
+        changed := true
+        for changed {
+            changed = false
+            for i := 0; i < len(position); i++ {
+                if connect[i] {
+                    continue
+                }
+
+                for j := 0; j < len(position); j++ {
+                    if !connect[j] {
+                        continue
+                    }
+                    if checkAdjacent(position[i], position[j]) {
+                        connect[i] = true
+                        changed = true
+                        break
+                    }
+                }
+            }
+        }
+
+        for i := 0; i < len(position); i++ {
+            if !connect[i] {
+                return fmt.Errorf("Region '%c' tidak boleh terpisah.", region)
+            }
+        }
+    }
+    return nil
+}
+\end{lstlisting}
+\textbf{Algoritma}:
+\begin{enumerate}
+    \item Kelompokkan sel berdasarkan alfabet (region).
+    \item Untuk tiap region, cek keterhubungan 4-arah.
+    \item Jika ada sel yang tidak terhubung, kembalikan error.
+\end{enumerate}
+
+\algorithm{Validasi posisi ratu (\textit{CheckPosition} dan \textit{OneQueen})}
+\begin{lstlisting}[language=go]
+func CheckPosition(area TArea, queensLocation []TPosition) (valid bool) {
+    if len(queensLocation) == 0 {
+        return true
+    }
+
+    for i := 0; i < len(queensLocation); i++ {
+        p := queensLocation[i]
+        for j := i + 1; j < len(queensLocation); j++ {
+            q := queensLocation[j]
+            if p.row == q.row {
+                return false
+            }
+            if p.col == q.col {
+                return false
+            }
+            if p.row-p.col == q.row-q.col {
+                return false
+            }
+            if p.row+p.col == q.row+q.col {
+                return false
+            }
+        }
+    }
+    return true
+}
+
+func OneQueen(area *TArea, queens []TPosition) bool {
+    regionCount := make(map[string]int, area.totalColor)
+    for _, cell := range area.cells {
+        regionCount[cell.color] = 0
+    }
+
+    for _, q := range queens {
+        cell := area.cells[q.row*area.n+q.col]
+        regionCount[cell.color]++
+    }
+
+    for _, c := range regionCount {
+        if c != 1 {
+            return false
+        }
+    }
+    return true
+}
+\end{lstlisting}
+\textbf{Algoritma}:
+\begin{enumerate}
+    \item Pastikan tiap ratu tidak berbagi baris, kolom, atau diagonal.
+    \item Pastikan tiap ratu hanya ada satu pada setiap region.
+\end{enumerate}
+
+Implementasi lebih lengkap dapat dilihat pada folder \textbf{\textit{src/solution}} di \textit{repository} GitHub yang dapat diakses pada lampiran.
 
 \section{Implementasi GUI}
+
+GUI dibuat menggunakan pustaka Fyne pada bahasa Go. Antarmuka ini bertujuan memudahkan pengguna dalam memasukkan layout, mencari solusi, serta melihat proses pencarian solusi secara visual. Seluruh komponen GUI terletak pada folder \textbf{\textit{src/display}} dengan fungsi utama \textit{DisplayUI} sebagai titik masuk.
+
+\subsection{Desain Antarmuka}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{GUI.png}
+    \caption{Desain Antarmuka}
+\end{figure}
+
+
+\subsection{Komponen Utama}
+Komponen yang ditampilkan pada antarmuka antara lain:
+\begin{enumerate}
+    \item \textbf{Input ukuran N} untuk display layout NxN
+    \item \textbf{Tombol .txt} untuk memuat layout dari file .txt
+    \item \textbf{Grid input} berupa pilihan huruf dengan warna region agar mudah dibedakan.
+    \item \textbf{Tombol Solve/Optimized} untuk mencari solusi brute force dan versi optimized.
+    \item \textbf{Tombol Stop} untuk menghentikan proses pencarian yang sedang berjalan.
+    \item \textbf{Panel visualisasi} yang menampilkan board dan posisi ratu selama proses pencarian.
+\end{enumerate}
+
+\subsection{Alur Interaksi}
+Pengguna dapat memilih salah satu dari dua cara input: (1) mengisi ukuran N lalu menyusun grid secara manual, atau (2) memuat layout melalui file .txt. Setelah layout valid, tombol Solve/Optimized mencari solusi di goroutine agar GUI tetap responsif. Setiap beberapa langkah, tampilan board diperbarui untuk memvisualisasikan kandidat solusi. Jika solusi ditemukan, posisi ratu ditampilkan dan hasil disimpan ke file output. Jika tidak ada solusi, GUI menampilkan pesan dan tetap menyimpan keluaran berupa layout dengan teks "Tidak ada solusi".
+
+\subsection{Implementasi Komponen GUI}
+
+\algorithm{Grid input dengan warna region}
+\begin{lstlisting}[language=go]
+buildSelectGrid := func(n int, options []string) {
+    cells := make([]*widget.Select, 0, n*n)
+    rects := make([]*canvas.Rectangle, 0, n*n)
+    grid := container.NewGridWithColumns(n)
+    
+    for i := 0; i < n*n; i++ {
+        cell := widget.NewSelect(options, nil)
+        cell.PlaceHolder = "-"
+        
+        bgRect := canvas.NewRectangle(&color.NRGBA{R: 255, G: 255, B: 255, A: 255})
+        bgRect.SetMinSize(fyne.NewSize(50, 30))
+        rects = append(rects, bgRect)
+        
+        j := i
+        cell.OnChanged = func(selected string) {
+            if selected != "" {
+                if hexColor, ok := solution.CellColor[selected]; ok {
+                    rects[j].FillColor = HexToRgb(hexColor)
+                }
+                rects[j].Refresh()
+            }
+        }
+        
+        cellContainer := container.NewStack(bgRect, cell)
+        cells = append(cells, cell)
+        grid.Add(cellContainer)
+    }
+    
+    gridCells = cells
+    gridBg = rects
+    gridN = n
+}
+\end{lstlisting}
+\textbf{Algoritma}:
+\begin{enumerate}
+    \item Buat grid NxN dengan dropdown pilihan huruf per sel.
+    \item Tambahkan background persegi untuk warna region.
+    \item Daftarkan callback \textit{OnChanged} untuk update warna saat huruf dipilih.
+    \item Stack background dan dropdown agar warna terlihat di belakang pilihan.
+\end{enumerate}
+
+\algorithm{Memuat layout dari file .txt}
+\begin{lstlisting}[language=go]
+inputTextFunc := NewFileOpen(func(closer fyne.URIReadCloser, err error) {
+    if err != nil {
+        dialog.NewInformation("Error", err.Error(), w).Show()
+        return
+    }
+    defer closer.Close()
+
+    b, readErr := io.ReadAll(closer)
+    if readErr != nil {
+        dialog.NewInformation("Error", readErr.Error(), w).Show()
+        return
+    }
+    
+    content := strings.TrimSpace(string(b))
+    if content == "" {
+        dialog.NewInformation("Error", "File kosong.", w).Show()
+        return
+    }
+
+    if _, parseErr := updateGrid(content); parseErr != nil {
+        dialog.NewInformation("Error", parseErr.Error(), w).Show()
+        return
+    }
+}, w)
+\end{lstlisting}
+\textbf{Algoritma}:
+\begin{enumerate}
+    \item Buka dialog pemilihan file .txt.
+    \item Baca isi file dan trim whitespace.
+    \item Parse layout ke grid dengan \textit{updateGrid}.
+    \item Tampilkan error jika parsing gagal.
+\end{enumerate}
+
+\algorithm{Menjalankan algoritma pencarian solusi dengan goroutine}
+\begin{lstlisting}[language=go]
+runSolver := func(solver func(*solution.TArea, func([]solution.TPosition) bool) []solution.TPosition,
+    area *solution.TArea, layout string) {
+    
+    if stopSolve != nil {
+        close(stopSolve)
+    }
+    stopSolve = make(chan struct{})
+    stopCh := stopSolve
+
+    go func(area *solution.TArea, layout string) {
+        stepCount := 0
+        ans := solver(area, func(candidate []solution.TPosition) bool {
+            select {
+            case <-stopCh:
+                return false
+            default:
+            }
+            
+            stepCount++
+            if stepCount%50 == 0 || stepCount < 20 {
+                boardArea.Objects = []fyne.CanvasObject{buildVisualGrid(area, candidate)}
+                boardArea.Refresh()
+            }
+            return true
+        })
+        
+        if ans == nil {
+            dialog.NewInformation("Hasil", "Tidak ada solusi untuk layout ini.", w).Show()
+        } else {
+            outputPath, _ := SaveOutput(area, ans, layout)
+            dialog.NewInformation("Hasil", 
+                fmt.Sprintf("Solusi ditemukan setelah %d langkah!\\n\\nOutput disimpan ke:\\n%s", 
+                stepCount, outputPath), w).Show()
+        }
+    }(area, layout)
+}
+\end{lstlisting}
+\textbf{Algoritma}:
+\begin{enumerate}
+    \item Kill goroutine lama jika ada dengan close channel.
+    \item Buat channel baru untuk stop signal.
+    \item Jalankan algoritma solusi di goroutine dengan callback update GUI tiap beberapa langkah.
+    \item Tampilkan hasil atau pesan "tidak ada solusi" setelah selesai.
+\end{enumerate}
+
+\algorithm{Visualisasi layout dengan ratu}
+\begin{lstlisting}[language=go]
+buildVisualGrid := func(area *solution.TArea, queens []TPosition) *fyne.Container {
+    n := area.N()
+    grid := container.NewGridWithColumns(n)
+    
+    queenMap := make(map[string]bool)
+    for _, q := range queens {
+        key := fmt.Sprintf("%d,%d", q.Row(), q.Col())
+        queenMap[key] = true
+    }
+    
+    for row := 0; row < n; row++ {
+        for col := 0; col < n; col++ {
+            region := area.RegionAt(row, col)
+            key := fmt.Sprintf("%d,%d", row, col)
+            hasQueen := queenMap[key]
+            
+            hexColor := area.Color(row, col)
+            bgColor := HexToRgb(hexColor)
+            bgRect := canvas.NewRectangle(bgColor)
+            bgRect.SetMinSize(fyne.NewSize(50, 50))
+            
+            if hasQueen {
+                queenText := canvas.NewText("/Emoji Mahkota/", &color.NRGBA{R: 0, G: 0, B: 0, A: 255})
+                queenText.Alignment = fyne.TextAlignCenter
+                queenText.TextSize = 32
+                cellContent := container.NewStack(bgRect, container.NewCenter(queenText))
+                grid.Add(cellContent)
+            } else {
+                regionLabel := widget.NewLabel(region)
+                regionLabel.Alignment = fyne.TextAlignCenter
+                cellContent := container.NewStack(bgRect, regionLabel)
+                grid.Add(cellContent)
+            }
+        }
+    }
+    return grid
+}
+\end{lstlisting}
+\textbf{Algoritma}:
+\begin{enumerate}
+    \item Buat map posisi ratu.
+    \item Berikan background dengan warna region untuk setiap sel.
+    \item Jika ada ratu tampilkan mahkota. Sebaliknya, tampilkan huruf region.
+    \item Kembalikan container grid untuk ditampilkan pada container visualisasi.
+\end{enumerate}
+
+\section{Struktur Proyek}
+
+\subsection{Struktur Folder}
+\begin{lstlisting}
+README.md
+bin/
+    queens.exe
+doc/
+    13524034.pdf
+src/
+    go.mod
+    main.go
+    display/
+        txt.go
+        view.go
+    solution/
+        area.go
+        check.go
+        exha.go
+test/
+    input01.txt
+    input02.txt
+    input03.txt
+    input04.txt
+    input05.txt
+    input06.txt
+    input07.txt
+    input08.txt
+\end{lstlisting}
+
+\subsection{Package main}
+\begin{enumerate}
+    \item \textbf{main()} - titik masuk program, langsung memanggil \textit{DisplayUI} untuk menampilkan GUI.
+\end{enumerate}
+
+\subsection{Package display}
+\begin{enumerate}
+    \item \textbf{DisplayUI()} - menggabungkan seluruh GUI: input N, load .txt, grid input, tombol Solve serta visualisasi proses.
+    \item \textbf{SaveOutput(area, queens, inputLayout)} - menyimpan hasil ke file \textit{output\_timestamp.txt} di folder \textit{test}, dengan format tanda \texttt{\#} untuk ratu.
+    \item \textbf{layoutToRegion(layout)} - mengambil daftar huruf region yang muncul di layout untuk opsi pilihan di grid.
+    \item \textbf{NewFileOpen(callback, parent)} - helper untuk dialog pemilihan file .txt di GUI.
+\end{enumerate}
+
+\subsection{Package solution}
+\begin{enumerate}
+    \item \textbf{(TArea) N()} - mengembalikan ukuran board NxN.
+    \item \textbf{(TArea) RegionAt(row, col)} - mengambil huruf region pada koordinat tertentu.
+    \item \textbf{InputCells(cells)} - parsing layout teks menjadi struktur \textit{TArea} sekaligus validasi ukuran dan karakter.
+    \item \textbf{ValidRegion(area)} - mengecek ketersambungan tiap region.
+    \item \textbf{(TArea) Color(row, col)} - mengambil warna region untuk kebutuhan tampilan.
+    \item \textbf{CellColor} - tabel warna untuk tiap huruf region pada GUI.
+    \item \textbf{(TPosition) Row()/Col()} - getter untuk koordinat ratu.
+    \item \textbf{CheckPosition(area, queensLocation)} - validasi posisi ratu.
+    \item \textbf{PrintPosition(area, queensLocation)} - menampilkan board ke cli.
+    \item \textbf{OneQueen(area, queens)} - memastikan tiap region berisi tepat satu ratu.
+    \item \textbf{TryPosition(area, onStep)} - brute force.
+    \item \textbf{TryPositionOptimized(area, onStep)} - brute force dengan permutasi kolom agar proses lebih cepat.
+    \item \textbf{FindPosition(area)} - fungsi utama yang memanggil \textit{TryPosition}.
+\end{enumerate}
 
 
 \section{Kasus Uji}
 
+Bagian ini berisi masukan dari file uji dan tempat untuk menempelkan tangkapan layar keluaran program.
 
+\subsection{Kasus Uji 1}
+\textbf{Input}
+\begin{lstlisting}
+AAAA
+RRRR
+CCCC
+DDDD
+\end{lstlisting}
 
+\textbf{Output}\\
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{01.png}
+    \caption{Output 01}
+\end{figure}
+
+\subsection{Kasus Uji 2}
+\textbf{Input}
+\begin{lstlisting}
+AAAAA
+BBBCC
+CCCCC
+DDDDD
+DEEAA
+\end{lstlisting}
+
+\textbf{Output}\\
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{02.png}
+    \caption{Output 02}
+\end{figure}
+
+\subsection{Kasus Uji 3}
+\textbf{Input}
+\begin{lstlisting}
+AAAA
+BBBB
+DCDD
+DDDD
+\end{lstlisting}
+
+\textbf{Output}\\
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{03.png}
+    \caption{Output 03}
+\end{figure}
+
+\subsection{Kasus Uji 4}
+\textbf{Input}
+\begin{lstlisting}
+AABBB
+CCCCB
+CCDDB
+DDDBB
+EEEEE
+\end{lstlisting}
+
+\textbf{Output}\\
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{04.png}
+    \caption{Output 04}
+\end{figure}
+
+\subsection{Kasus Uji 5}
+\textbf{Input}
+\begin{lstlisting}
+AABBB
+AACCC
+DDCCE
+DDDEE
+DDDEE
+\end{lstlisting}
+
+\textbf{Output}\\
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{05.png}
+    \caption{Output 05}
+\end{figure}
+
+\subsection{Kasus Uji 6}
+\textbf{Input}
+\begin{lstlisting}
+AACC
+DBCC
+DBBB
+AAAA
+\end{lstlisting}
+
+\textbf{Output}\\
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{06.png}
+    \caption{Output 06}
+\end{figure}
+
+\subsection{Kasus Uji 7}
+\textbf{Input}
+\begin{lstlisting}
+AAABBBC
+ AAABBCC
+ DDDBBCC
+ DDDEEFF
+ DDDEEFF
+ GGGEEFF
+ GGGGGFF
+\end{lstlisting}
+
+\textbf{Output}\\
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{07.png}
+    \caption{Output 07}
+\end{figure}
+
+\subsection{Kasus Uji 8}
+\textbf{Input}
+\begin{lstlisting}
+AAABBC
+AAABBC
+DDDCCC
+DDDEEE
+FFDEFF
+FFFEFF
+\end{lstlisting}
+
+\textbf{Output}\\
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{08.png}
+    \caption{Output 08}
+\end{figure}
 
 \section*{Lampiran}
 \addcontentsline{toc}{section}{Lampiran}
@@ -182,11 +789,11 @@ Langkah di atas dapat dilihat implementasinya pada folder \textbf{\textit{src/so
 \hline
 3 & Solusi yang diberikan program benar dan mematuhi aturan permainan & \checkmark & \empty \\
 \hline
-4 & Program dapat membaca masukan berkas .txt serta menyimpan solusi dalam berkas .txt &  & \empty \\
+4 & Program dapat membaca masukan file .txt serta menyimpan solusi dalam file .txt & \checkmark & \empty \\
 \hline
-5 & Program memiliki Graphical User Interface (GUI) &  & \empty \\
+5 & Program memiliki Graphical User Interface (GUI) & \checkmark & \empty \\
 \hline
-6 & Program dapat menyimpan solusi dalam bentuk file gambar &  & \empty \\
+6 & Program dapat menyimpan solusi dalam bentuk file gambar & \empty & \checkmark \\
 \hline
 \end{tabularx}
 \end{table}

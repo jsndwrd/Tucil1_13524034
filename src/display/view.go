@@ -249,6 +249,7 @@ func DisplayUI() {
 			close(stopSolve)
 		}
 		stopSolve = make(chan struct{})
+		stopCh := stopSolve // capture so this goroutine always listens to the channel it was given
 
 		go func(area *solution.TArea, layout string) {
 			var result []solution.TPosition
@@ -257,7 +258,7 @@ func DisplayUI() {
 
 			ans := solver(area, func(candidate []solution.TPosition) bool {
 				select {
-				case <-stopSolve:
+				case <-stopCh:
 					cancelled = true
 					return false
 				default:
