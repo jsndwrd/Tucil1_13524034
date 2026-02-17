@@ -45,7 +45,7 @@ func TryPosition(area *TArea, onStep func([]TPosition) bool) []TPosition {
 		}
 
 		var i int
-		for i = n - 1; i >= 0; i-- {
+		for i = n-1; i >= 0; i-- {
 			cols[i]++
 			if cols[i] < n {
 				break
@@ -54,6 +54,53 @@ func TryPosition(area *TArea, onStep func([]TPosition) bool) []TPosition {
 		}
 		if i < 0 {
 			break
+		}
+	}
+
+	return nil
+}
+
+func TryPositionOptimized(area *TArea, onStep func([]TPosition) bool) []TPosition {
+	n := area.n
+
+	cols := make([]int, n)
+	for i := 0; i < n; i++ {
+		cols[i] = i
+	}
+
+	for {
+		temp := make([]TPosition, n)
+		for row := 0; row < n; row++ {
+			temp[row] = TPosition{row, cols[row]}
+		}
+
+		// callback update GUI
+		if !onStep(temp) {
+			return nil
+		}
+
+		if CheckPosition(*area, temp) && OneQueen(area, temp) {
+			area.queensLocation = temp
+			return temp
+		}
+
+		i := n-2
+		for i >= 0 && cols[i] > cols[i+1] {
+			i--
+		}
+		if i < 0 {
+			break
+		}
+
+		j := n-1
+		for cols[j] < cols[i] {
+			j--
+		}
+
+		cols[i], cols[j] = cols[j], cols[i]
+
+		for l, r := i+1, n-1; l < r; l, r = l+1, r-1 {
+			cols[l], cols[r] = cols[r], cols[l]
 		}
 	}
 
