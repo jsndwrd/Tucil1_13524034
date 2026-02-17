@@ -32,13 +32,15 @@
 \lstset{
   basicstyle=\ttfamily\small,
   breaklines=true,
+  breakatwhitespace=true,
   tabsize=2,
   showstringspaces=false,
   frame=single,
   numbers=left,
   numberstyle=\tiny,
   xleftmargin=2em,
-  framexleftmargin=1.5em
+  framexleftmargin=1.5em,
+  columns=flexible
 }
 
 \pagestyle{fancy}
@@ -98,16 +100,66 @@ Pada penyelesaian ini, algoritma akan terbagi menjadi:
 \end{enumerate}
 
 \subsubsection{Exhaustive Search}
-Untuk setiap baris, kita akan menempatkan ratu pada setiap kolom dan melakukan validasi setelah tiap baris memiliki satu ratu. Langkah ini dapat diimplementasikan menggunakan pengulangan dan rekursi. Pada bahasa Go, algoritmanya sebagai berikut:
-\begin{lstlisting}[language=Go]
+Untuk setiap baris, kita akan menempatkan ratu pada setiap kolom dan melakukan validasi setelah tiap baris memiliki satu ratu. Langkah ini dapat diimplementasikan sebagai berikut.
+\begin{enumerate}
+    \item Iterasi tiap baris dengan kombinasi tiap kolom.
+    
+    Contoh: {(0, 0) hingga (0, N-1)}, {(1, 0) hingga (1, N-1)}, dan seterusnya.
+    
+\begin{lstlisting}[language=go]
+func TryPosition(area *TArea) (queensLocation []TPosition) {
+    n := area.n
+    cols := make([]int, n)
+    for {
+        temp := make([]TPosition, n)
+        for row := 0; row < n; row++ {
+            temp[row] = TPosition{row, cols[row]}
+        }
 
+        if CheckPosition(*area, temp) {
+            area.queensLocation = temp
+            return temp
+        }
+
+        var i int
+        for i = n - 1; i >= 0; i-- {
+            cols[i]++
+            if cols[i] < n {
+                break
+            }
+            cols[i] = 0
+        }
+        if i < 0 {
+            break
+        }
+    }
+
+    return nil
+}
 \end{lstlisting}
 
-\subsection{Implementasi GUI}
+    \item Setelah menempatkan ratu di tiap baris, validasi apakah penempatan sudah memenuhi aturan. Jika belum, iterasi ke penempatan selanjutnya.
+    \item Jika solusi ditemukan, solusi akan dikembalikan dan jika tidak maka akhiri iterasi. 
+    
+    Pada kode di atas, fungsi \textit{CheckPosition} memvalidasi penempatan dan jika valid maka solusi akan tersimpan pada \textit{area.queensLocation} dan dikembalikan. Sebaliknya, kode akan berlanjut jika \textit{CheckPosition} mengembalikan false.
 
-\subsection{Implementasi Input dan Output Berkas .txt}
+\end{enumerate}
 
-\subsection{Kasus Uji}
+\subsubsection{Validasi Penempatan}
+Validasi yang harus dilakukan pada setiap masukan dan penempatan ratu antara lain:
+\begin{enumerate}
+    \item Cek apakah area yang dimasukkan memiliki ukuran NxN dengan N > 0.
+    \item Cek apakah area NxN memiliki N representasi huruf.
+    \item Cek apakah tiap representasi huruf selalu terhubung dan tidak terputus.
+    \item Cek apakah penempatan ratu sesuai dengan aturan permainan: tidak berada pada baris dan kolom yang sama serta tiap ratu tidak terletak di 8 sel sekitar ratu lainnya.
+\end{enumerate}
+
+Langkah di atas dapat dilihat implementasinya pada folder \textbf{\textit{src/solution}} di \textit{repository} GitHub yang dapat diakses pada lampiran.
+
+\section{Implementasi GUI}
+
+
+\section{Kasus Uji}
 
 
 
@@ -121,11 +173,11 @@ Untuk setiap baris, kita akan menempatkan ratu pada setiap kolom dan melakukan v
 \hline
 \textbf{No} & \centerline{\textbf{Poin}} & \textbf{Ya} & \textbf{Tidak} \\
 \hline
-1 & Program berhasil dikompilasi tanpa kesalahan &  & \empty \\
+1 & Program berhasil dikompilasi tanpa kesalahan & \checkmark & \empty \\
 \hline
-2 & Program berhasil dijalankan &  & \empty \\
+2 & Program berhasil dijalankan & \checkmark & \empty \\
 \hline
-3 & Solusi yang diberikan program benar dan mematuhi aturan permainan &  & \empty \\
+3 & Solusi yang diberikan program benar dan mematuhi aturan permainan & \checkmark & \empty \\
 \hline
 4 & Program dapat membaca masukan berkas .txt serta menyimpan solusi dalam berkas .txt &  & \empty \\
 \hline
