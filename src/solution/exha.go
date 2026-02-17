@@ -1,5 +1,30 @@
 package solution
 
+func OneQueen(area *TArea, queens []TPosition) bool {
+	if area == nil {
+		return false
+	}
+
+	regionCount := make(map[string]int, area.totalColor)
+	for _, cell := range area.cells {
+		regionCount[cell.color] = 0
+	}
+
+	// Hitung queen per region
+	for _, q := range queens {
+		cell := area.cells[q.row*area.n+q.col]
+		regionCount[cell.color]++
+	}
+
+	for _, c := range regionCount {
+		if c != 1 {
+			return false
+		}
+	}
+
+	return true
+}
+
 func TryPosition(area *TArea, onStep func([]TPosition) bool) []TPosition {
 	n := area.n
 	cols := make([]int, n)
@@ -14,7 +39,7 @@ func TryPosition(area *TArea, onStep func([]TPosition) bool) []TPosition {
 			return nil
 		}
 
-		if CheckPosition(*area, temp) {
+		if CheckPosition(*area, temp) && OneQueen(area, temp) {
 			area.queensLocation = temp
 			return temp
 		}
