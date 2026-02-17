@@ -1,0 +1,4 @@
+.idea
+doc/*
+!doc/13524034.tex
+!doc/13524034.pdf
