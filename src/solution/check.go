@@ -7,6 +7,14 @@ type TPosition struct {
 	col int
 }
 
+func (p TPosition) Row() int {
+	return p.row
+}
+
+func (p TPosition) Col() int {
+	return p.col
+}
+
 func CheckPosition(area TArea, queensLocation []TPosition) (valid bool) {
 	PrintPosition(area, queensLocation)
 	if len(queensLocation) == 0 {

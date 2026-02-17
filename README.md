@@ -13,8 +13,6 @@ This program is made for IF2211 Algorithm Strategy course mini project submissio
 1. `src`:
    - `display`: GUI-related source code.
    - `solution`: Brute Force approach solution.
-   - `utils`: Helper functions.
-
 2. `doc`: project documentation.
 3. `test`: testcases and results.
 4. `bin`: executables.
