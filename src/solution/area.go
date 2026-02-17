@@ -19,6 +19,16 @@ type TArea struct {
 	queensLocation []TPosition // Koordinat tiap penempatan ratu
 }
 
+// return ukuran board (NxN).
+func (a *TArea) N() int {
+	return a.n
+}
+
+// return huruf region pada (row, col).
+func (a *TArea) RegionAt(row, col int) string {
+	return a.cells[row*a.n+col].color
+}
+
 func checkAdjacent(first, second TPosition) bool {
 	row := first.row-second.row
 	if row < 0 {
@@ -34,16 +44,25 @@ func checkAdjacent(first, second TPosition) bool {
 func InputCells(cells string) (area *TArea, err error) {
 	cells = strings.TrimSpace(cells)
 	rows := strings.Split(cells, "\n")
-	// Validasi input
-	if len(rows) == 0 || len(rows[0]) == 0 {
-		return nil, fmt.Errorf("Input tidak boleh kosong.")
+	
+	rowClean := make([]string, 0, len(rows))
+	for _, row := range rows {
+		fix := strings.TrimSpace(row)
+		if fix != "" {
+			rowClean = append(rowClean, fix)
+		}
 	}
-	N := len(rows[0])
+	
+	// Validasi input
+	if len(rowClean) == 0 || len(rowClean[0]) == 0 {
+		return nil, fmt.Errorf("Input kosong.")
+	}
+	N := len(rowClean[0])
 
-	if len(rows) != N {
+	if len(rowClean) != N {
 		return nil, fmt.Errorf("Ukuran harus NxN.")
 	}
-	for _, row := range rows {
+	for _, row := range rowClean {
 		if len(row) != N {
 			return nil, fmt.Errorf("Ukuran harus NxN.")
 		}
@@ -58,9 +77,9 @@ func InputCells(cells string) (area *TArea, err error) {
 	colorCtr := make(map[string]bool)
 	colorPosition := make(map[byte][]TPosition)
 
-	for row := 0; row < len(rows); row++ {
-		for col := 0; col < len(rows[row]); col++ {
-			region := rows[row][col]
+	for row := 0; row < len(rowClean); row++ {
+		for col := 0; col < len(rowClean[row]); col++ {
+			region := rowClean[row][col]
 			color := string(region)
 
 			cell := TCell{
@@ -76,7 +95,23 @@ func InputCells(cells string) (area *TArea, err error) {
 		return nil, fmt.Errorf("Jumlah region unik harus sama dengan N.")
 	}
 
-	// Region harus tidak terputus sama sekali
+	area = &TArea{
+		n:              N,
+		totalColor:     len(colorCtr),
+		cells:          arrCell,
+		queensLocation: make([]TPosition, 0, N),
+	}
+
+	return area, nil
+}
+
+func ValidRegion(area *TArea) error {
+	colorPosition := make(map[byte][]TPosition)
+	for _, cell := range area.cells {
+		region := byte(cell.color[0])
+		colorPosition[region] = append(colorPosition[region], cell.TPosition)
+	}
+
 	for region, position := range colorPosition {
 		if len(position) == 0 {
 			continue
@@ -108,17 +143,48 @@ func InputCells(cells string) (area *TArea, err error) {
 
 		for i := 0; i < len(position); i++ {
 			if !connect[i] {
-				return nil, fmt.Errorf("Region '%c' tidak boleh terpisah.", region)
+				return fmt.Errorf("Region '%c' tidak boleh terpisah.", region)
 			}
 		}
 	}
 
-	area = &TArea{
-		n:              N,
-		totalColor:     len(colorCtr),
-		cells:          arrCell,
-		queensLocation: make([]TPosition, 0, N),
-	}
+	return nil
+}
 
-	return area, nil
+// Izin 6 warna cape nyopas hex
+var CellColor = map[string]string{
+	"A": "#2660A4",
+	"B": "#326273",
+	"C": "#E39774",
+	"D": "#DF2935",
+	"E": "#1B998B",
+	"F": "#A6CFD5",
+	"G": "#2660A4",
+	"H": "#326273",
+	"I": "#E39774",
+	"J": "#DF2935",
+	"K": "#1B998B",
+	"L": "#A6CFD5",
+	"M": "#2660A4",
+	"N": "#326273",
+	"O": "#E39774",
+	"P": "#DF2935",
+	"Q": "#1B998B",
+	"R": "#A6CFD5",
+	"S": "#2660A4",
+	"T": "#326273",
+	"U": "#E39774",
+	"V": "#DF2935",
+	"W": "#1B998B",
+	"X": "#A6CFD5",
+	"Y": "#2660A4",
+	"Z": "#326273",
+}
+
+func (a *TArea) Color(row, col int) string {
+	region := a.RegionAt(row, col)
+	if color, ok := CellColor[region]; ok {
+		return color
+	}
+	return ""
 }
